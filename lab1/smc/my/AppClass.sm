@@ -1,0 +1,70 @@
+%{
+// State Map
+// This state map recognizes:
+// gtalk:(talk|chat)\?jid=[a-z0-9]+@([a-z0-9]+)\.[a-z]{1,5}
+//
+%}
+
+%start Map1::Start
+%class AppClass
+%header   AppClass.h
+
+%map Map1
+%%
+// State		Transition		End State		Action(s)
+Start
+{
+				Prefix			UserName		{}
+				Reset			Start     	    {}
+				Unknown			Error     	    {}
+}
+
+UserName
+{
+				Alpha	        UserName	    {}
+				Num 			UserName 		{}
+				At			    ServerName		{}
+				Period			Error			{}
+				EOS			    Error			{Unacceptable();}
+				Unknown			Error     	    {}
+}
+ServerName
+{
+				Alpha	        ServerName	    {}
+                Num 			ServerName 		{}
+				Period			Domain			{}
+				At			    Error    		{}
+				EOS			    Error			{Unacceptable();}
+				Unknown			Error     	    {}
+}
+
+Domain
+{
+				Alpha			Domain			{}
+				AlphaLimit		Error			{}
+				EOS			    OK			    {Acceptable();}
+				Num 			Error 		    {}
+				At			    Error 		    {}
+				Period			Error			{}
+				Unknown			Error     	    {}
+
+}
+
+OK
+{
+				Unknown			nil				{}
+				Reset			Start			{}
+}
+
+Error
+{
+				Unknown			nil 			{}
+				EOS				nil 			{Unacceptable();}
+				Reset			Start			{}
+				Alpha			nil			    {}
+                AlphaLimit		nil			    {}
+                Num 			nil      		{}
+                At			    Error 		    {}
+                Period			Error			{}
+}
+%%
