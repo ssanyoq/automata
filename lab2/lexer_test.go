@@ -158,7 +158,7 @@ func TestSkipWhitespaces(t *testing.T) {
 		wantPos int
 	}{
 		{
-			name:    "No leading whitespace",
+			name:    "No leading whitespaces",
 			input:   "abc",
 			start:   0,
 			wantPos: 0,

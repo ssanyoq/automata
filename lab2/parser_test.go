@@ -96,3 +96,62 @@ func TestPopTillStop(t *testing.T) {
 		})
 	}
 }
+
+func TestParseBrackets(t *testing.T) {
+	tests := []struct {
+		name              string
+		inputString       string
+		expectedError     bool
+		expectedFragments []Node
+	}{
+		{
+			name:          "basic example",
+			inputString:   "[a-z]",
+			expectedError: false,
+			expectedFragments: []Node{&CharacterRangeNode{
+				From: 'a',
+				To:   'z',
+			}},
+		},
+		{
+			name:              "bad range",
+			inputString:       "[z-a]",
+			expectedError:     true,
+			expectedFragments: []Node{},
+		},
+		{
+			name:              "not enough arguments",
+			inputString:       "[a-]",
+			expectedError:     true,
+			expectedFragments: []Node{},
+		},
+		{
+			name:              "not enough arguments2",
+			inputString:       "[-z]",
+			expectedError:     true,
+			expectedFragments: []Node{},
+		},
+		{
+			name:              "not enough arguments3",
+			inputString:       "[az]",
+			expectedError:     true,
+			expectedFragments: []Node{},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			input := test.inputString[1:] // to cut '['
+			parser := NewParser(NewLexer(input))
+
+			parser.parseBrackets()
+
+			if test.expectedError {
+				assert.NotEmpty(t, parser.Errors)
+				return
+			} else {
+				assert.Empty(t, parser.Errors)
+			}
+			assert.Equal(t, test.expectedFragments, unloadStack(parser.fragmentsStack))
+		})
+	}
+}

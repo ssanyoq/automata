@@ -27,6 +27,10 @@ func NewLexer(input string) *Lexer {
 }
 
 func (l *Lexer) SkipWhitespaces() {
+	if l.pos >= len(l.input) || GetToken(l.input[l.pos]) != Whitespace {
+		return
+	}
+	l.Next()
 	for l.pos < len(l.input) && GetToken(l.input[l.pos]) == Whitespace {
 		l.pos++
 	}

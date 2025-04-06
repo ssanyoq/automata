@@ -58,8 +58,8 @@ func (n *RangeRepeatNode) GetChildren() []*Node {
 // Node for representing [a-z] -type expressions
 type CharacterRangeNode struct {
 	Node
-	From *rune
-	To   *rune
+	From rune
+	To   rune
 }
 
 func (n *CharacterRangeNode) GetChildren() []*Node {
