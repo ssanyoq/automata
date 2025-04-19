@@ -115,35 +115,44 @@ func (p *Parser) parseBraces() {
 		fromStr.WriteRune(fromVal)
 		tok, fromVal = p.lexer.Next()
 	}
+
 	if tok != Comma {
 		p.Errors = append(p.Errors, fmt.Errorf("at rr expected ',', but got: '%c'", fromVal))
 		return
 	}
 	p.lexer.SkipWhitespaces()
 
+	tok, toVal := p.lexer.Next()
 	var toStr strings.Builder
 	for tok == Digit {
-		toStr.WriteRune(fromVal)
-		tok, fromVal = p.lexer.Next()
+		toStr.WriteRune(toVal)
+		tok, toVal = p.lexer.Next()
 	}
+
 	if tok != ClosedBrace {
 		p.Errors = append(p.Errors, fmt.Errorf("at rr expected '}', but got: '%c'", fromVal))
 		return
 	}
-	var from, to *int
+
+	var from, to int
+	var err error
 	if fromStr.Len() != 0 {
-		fromVal, err := strconv.Atoi(fromStr.String())
-		from = &fromVal
+		from, err = strconv.Atoi(fromStr.String())
 		if err != nil {
 			p.Errors = append(p.Errors, err)
 			return
 		}
-		toVal, err := strconv.Atoi(fromStr.String())
-		to = &toVal
+	} else {
+		from = 0
+	}
+	if toStr.Len() != 0 {
+		to, err = strconv.Atoi(toStr.String())
 		if err != nil {
 			p.Errors = append(p.Errors, err)
 			return
 		}
+	} else {
+		to = -1
 	}
 	frag, ok := p.fragmentsStack.Pop()
 	if !ok {
@@ -178,42 +187,74 @@ func (p *Parser) parseBrackets() {
 		p.Errors = append(p.Errors, fmt.Errorf("'%c' is greater than '%c'", fromVal, toVal))
 		return
 	}
+	p.lexer.Next()
 	p.fragmentsStack.Push(&CharacterRangeNode{
 		From: fromVal,
 		To:   toVal,
 	})
 }
 
-func (p *Parser) BuildAST() (*Node, error) {
+func (p *Parser) pushPopPriority(nextOp Token) {
+	defer p.operatorsStack.Push(nextOp)
+
+	nextPriority, err := OpPriority(nextOp)
+	if err != nil {
+		p.Errors = append(p.Errors, err)
+		return
+	}
+	headOp, ok := p.operatorsStack.Peek()
+	if !ok { // empty stack
+		return
+	}
+	if headOp == OpenParenthesis {
+		return
+	}
+	headPriority, err := OpPriority(headOp)
+	if err != nil {
+		p.Errors = append(p.Errors, err)
+		return
+	}
+	if headPriority > nextPriority {
+		p.popTillStop()
+	}
+}
+
+func (p *Parser) BuildAST() (Node, error) {
 	tok, sym := p.lexer.Next()
 	openParenths := 0
 
-	// To insert '.' if wasn't
-	// wasBinary := true
-	for tok != EOS {
+	insertConcat := true
+	for tok != EOS && len(p.Errors) == 0 {
 		switch tok {
-		case Character:
+		case Character, Comma, Digit, Whitespace: // normies
+			if insertConcat && p.fragmentsStack.Size() != 0 {
+				p.pushPopPriority(Concat) // insert implicit concat
+			}
 			p.fragmentsStack.Push(&CharNode{Character: sym})
 		case OpenParenthesis:
+			if insertConcat && p.fragmentsStack.Size() != 0 {
+				p.pushPopPriority(Concat) // insert implicit concat
+			}
 			openParenths++
 			p.operatorsStack.Push(OpenParenthesis)
 		case OpenBrace: // time for using that a{1,2} operator
 			p.parseBraces()
+		case OpenBracket:
+			p.parseBrackets()
+		case Prognostic, Concat, Or, PositiveClosure, Kleene:
+			p.pushPopPriority(tok)
 		case ClosedParenthesis:
 			if openParenths < 0 {
 				return nil, errors.New("unmatched ')' found")
 			}
 			p.popTillStop()
-			if p.Errors != nil {
+			if len(p.Errors) != 0 {
 				return nil, combineErrors(p.Errors)
 			}
 			openParenths--
-			frag, ok := p.fragmentsStack.Pop()
-			if !ok {
-				return nil, errors.New("somehow poptillstop left 0 fragments")
-			}
-			p.fragmentsStack.Push(&CaptureGroupNode{Child: frag, Number: -1}) // TODO use correct numbers
 		}
+		args, _ := OpRequiresArgs(tok)
+		insertConcat = (args != 2 && tok != OpenParenthesis)
 		tok, sym = p.lexer.Next()
 	}
 	p.popTillStop()
@@ -221,5 +262,5 @@ func (p *Parser) BuildAST() (*Node, error) {
 	if !ok {
 		return nil, errors.New("no fragments to return")
 	}
-	return &out, combineErrors(p.Errors)
+	return out, combineErrors(p.Errors)
 }

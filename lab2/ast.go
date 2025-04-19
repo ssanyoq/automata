@@ -44,10 +44,12 @@ func (n *CaptureGroupNode) GetChildren() []*Node {
 }
 
 // Node for representing r{x,y} -type expressions
+// -1 is infinity.
+// {,} -> From = 0, To = -1
 type RangeRepeatNode struct {
 	Node
-	From  *int
-	To    *int
+	From  int
+	To    int
 	Child Node
 }
 

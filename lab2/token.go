@@ -85,19 +85,22 @@ func OpRequiresArgs(t Token) (int, error) {
 	return 0, errors.New("unknown operation")
 }
 
-// Returns operators priority. Highest priority is 0
+// Returns operators priority. The bigger the number,
+// the bigger the priority
 func OpPriority(t Token) (int, error) {
 	switch t {
 	case Concat:
 		return 1, nil
 	case Prognostic:
-		return 2, nil
+		return 0, nil
 	case Or:
-		return 2, nil
+		return 0, nil
 	case Kleene:
-		return 0, nil
+		return 2, nil
 	case PositiveClosure:
-		return 0, nil
+		return 2, nil
+	case OpenParenthesis:
+		return -1, errors.New("tried to use operator on opening paren")
 	}
 	return -1, errors.New("unknown operation")
 }

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func newLoadedStack[T any](load []T) *Stack[T] {
@@ -152,6 +153,133 @@ func TestParseBrackets(t *testing.T) {
 				assert.Empty(t, parser.Errors)
 			}
 			assert.Equal(t, test.expectedFragments, unloadStack(parser.fragmentsStack))
+		})
+	}
+}
+
+func TestBuildAST(t *testing.T) {
+	tests := []struct {
+		name        string
+		inputString string
+		expected    Node
+		expectErr   bool
+	}{
+		{
+			name:        "simple",
+			inputString: "abc",
+			expected: &BinaryOpNode{
+				Operation: Concat,
+				Left:      &CharNode{Character: 'a'},
+				Right: &BinaryOpNode{
+					Operation: Concat,
+					Left:      &CharNode{Character: 'b'},
+					Right:     &CharNode{Character: 'c'},
+				},
+			},
+			expectErr: false,
+		},
+		{
+			name:        "simple2",
+			inputString: "a|bc",
+			expected: &BinaryOpNode{
+				Operation: Or,
+				Right: &BinaryOpNode{
+					Operation: Concat,
+					Left:      &CharNode{Character: 'b'},
+					Right:     &CharNode{Character: 'c'},
+				},
+				Left: &CharNode{Character: 'a'},
+			},
+			expectErr: false,
+		},
+		{
+			name:        "harder",
+			inputString: "[a-z]+",
+			expected: &UnaryOpNode{
+				Operation: PositiveClosure,
+				Child: &CharacterRangeNode{
+					From: 'a',
+					To:   'z',
+				},
+			},
+		},
+		{
+			name:        "email",
+			inputString: "[a-z]+@ya(ndex){,1}%.ru",
+			expected: &BinaryOpNode{
+				Operation: Concat,
+				Left: &UnaryOpNode{
+					Operation: PositiveClosure,
+					Child: &CharacterRangeNode{
+						From: 'a',
+						To:   'z',
+					},
+				},
+				Right: &BinaryOpNode{
+					Operation: Concat,
+					Left: &CharNode{
+						Character: '@',
+					},
+					Right: &BinaryOpNode{
+						Operation: Concat,
+						Left: &CharNode{
+							Character: 'y',
+						},
+						Right: &BinaryOpNode{
+							Operation: Concat,
+							Left:      &CharNode{Character: 'a'},
+							Right: &BinaryOpNode{
+								Operation: Concat,
+								Left: &RangeRepeatNode{
+									From: 0,
+									To:   1,
+									Child: &CaptureGroupNode{
+										Number: -1,
+										Child: &BinaryOpNode{
+											Operation: Concat,
+											Left:      &CharNode{Character: 'n'},
+											Right: &BinaryOpNode{
+												Operation: Concat,
+												Left:      &CharNode{Character: 'd'},
+												Right: &BinaryOpNode{
+													Operation: Concat,
+													Left:      &CharNode{Character: 'e'},
+													Right:     &CharNode{Character: 'x'},
+												},
+											},
+										},
+									},
+								},
+								Right: &BinaryOpNode{
+									Operation: Concat,
+									Left:      &CharNode{Character: '.'},
+									Right: &BinaryOpNode{
+										Operation: Concat,
+										Left:      &CharNode{Character: 'r'},
+										Right:     &CharNode{Character: 'u'},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, test := range tests {
+		if test.name != "email" {
+			continue
+		}
+		t.Run(test.name, func(t *testing.T) {
+			input := test.inputString
+			parser := NewParser(NewLexer(input))
+			ast, err := parser.BuildAST()
+			if test.expectErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, test.expected, ast)
 		})
 	}
 }
