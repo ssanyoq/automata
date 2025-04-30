@@ -103,12 +103,31 @@ func KleeneeAutomata(a *Automata) *Automata {
 	}
 }
 
-func PositiveClosureAutomata(a *Automata) *Automata {
-	// TODO:
-	return nil
+func RepeatAutomata(a *Automata, from int, to int) *Automata {
+	res := &Automata{
+		head: a.head,
+		tail: a.tail,
+	}
+	for i := 0; i < from; i++ {
+		res = ConcatAutomata(res, a.Duplicate())
+	}
+	if to == -1 {
+		duplicate := a.Duplicate()
+		return ConcatAutomata(res, KleeneeAutomata(duplicate))
+	}
+	end := &State{
+		isAccepting: true,
+	}
+	res.tail.transitions = append(res.tail.transitions, &EpsilonTransition{s: end})
+	for i := from; i < to; i++ {
+		res = ConcatAutomata(res, a.Duplicate())
+		res.tail.transitions = append(res.tail.transitions, &EpsilonTransition{s: end})
+	}
+	res.tail.isAccepting = false
+	res.tail = end
+	return res
 }
 
-func RepeatAutomata(a *Automata, from int, to int) *Automata {
-	// TODO:
-	return nil
+func PositiveClosureAutomata(a *Automata) *Automata {
+	return RepeatAutomata(a, 1, -1)
 }
