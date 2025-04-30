@@ -91,13 +91,13 @@ func OpPriority(t Token) (int, error) {
 	switch t {
 	case Concat:
 		return 1, nil
-	case Prognostic:
-		return 0, nil
 	case Or:
 		return 0, nil
 	case Kleene:
 		return 2, nil
 	case PositiveClosure:
+		return 2, nil
+	case Prognostic:
 		return 2, nil
 	case OpenParenthesis:
 		return -1, errors.New("tried to use operator on opening paren")

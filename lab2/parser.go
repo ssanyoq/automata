@@ -12,7 +12,7 @@ type Parser struct {
 	lexer *Lexer
 
 	// stacks for stacking
-	fragmentsStack *Stack[Node]
+	fragmentsStack *Stack[*Automata]
 	operatorsStack *Stack[Token]
 
 	// To chill for a little bit and only return errors in main-ish functions
@@ -41,7 +41,7 @@ func combineErrors(errs []error) error {
 func NewParser(l *Lexer) *Parser {
 	return &Parser{
 		lexer:          l,
-		fragmentsStack: NewStack[Node](),
+		fragmentsStack: NewStack[*Automata](),
 		operatorsStack: NewStack[Token](),
 
 		Errors: []error{},
@@ -71,14 +71,28 @@ func (p *Parser) popOp() {
 			p.Errors = append(p.Errors, errors.New("expected operand"))
 			return
 		}
-		p.fragmentsStack.Push(&BinaryOpNode{Left: left, Right: right, Operation: op})
+		switch op {
+		case Concat:
+			p.fragmentsStack.Push(ConcatAutomata(left, right))
+		case Or:
+			p.fragmentsStack.Push(OrAutomata(left, right))
+		default:
+			panic("it's probably this prognostic guy isn't it")
+		}
 	case 1:
 		operand, ok := p.fragmentsStack.Pop()
 		if !ok {
 			p.Errors = append(p.Errors, errors.New("expected operand"))
 			return
 		}
-		p.fragmentsStack.Push(&UnaryOpNode{Child: operand, Operation: op})
+		switch op {
+		case Kleene:
+			p.fragmentsStack.Push(KleeneeAutomata(operand))
+		case PositiveClosure:
+			p.fragmentsStack.Push(PositiveClosureAutomata(operand))
+		default:
+			panic("weird unary operator")
+		}
 	default:
 		p.Errors = append(p.Errors, fmt.Errorf("operation with %d operands is not supported", args))
 		return
@@ -97,12 +111,7 @@ func (p *Parser) popTillStop() {
 	}
 	if op == OpenParenthesis {
 		p.operatorsStack.Pop() // to remove them
-		frag, ok := p.fragmentsStack.Pop()
-		if !ok {
-			p.Errors = append(p.Errors, errors.New("after popping parentheses there are no more nodes left somehow"))
-			return
-		}
-		p.fragmentsStack.Push(&CaptureGroupNode{Number: -1, Child: frag}) // TODO correct numbers
+		// p.fragmentsStack.Push(&CaptureGroupNode{Number: -1, Child: frag}) // do something like this in automatas
 	}
 
 }
@@ -159,11 +168,7 @@ func (p *Parser) parseBraces() {
 		p.Errors = append(p.Errors, errors.New("operator {} needs one operand, but none were found"))
 		return
 	}
-	p.fragmentsStack.Push(&RangeRepeatNode{
-		From:  from,
-		To:    to,
-		Child: frag,
-	})
+	p.fragmentsStack.Push(RepeatAutomata(frag, from, to))
 }
 
 // Called when parser encounters '[' to create RangeRepeat fragment
@@ -188,10 +193,11 @@ func (p *Parser) parseBrackets() {
 		return
 	}
 	p.lexer.Next()
-	p.fragmentsStack.Push(&CharacterRangeNode{
-		From: fromVal,
-		To:   toVal,
-	})
+	// p.fragmentsStack.Push(&CharacterRangeNode{
+	// 	From: fromVal,
+	// 	To:   toVal,
+	// })
+	p.fragmentsStack.Push(RangeCharAutomata(fromVal, toVal))
 }
 
 func (p *Parser) pushPopPriority(nextOp Token) {
@@ -219,7 +225,7 @@ func (p *Parser) pushPopPriority(nextOp Token) {
 	}
 }
 
-func (p *Parser) BuildAST() (Node, error) {
+func (p *Parser) BuildNFA() (*Automata, error) {
 	tok, sym := p.lexer.Next()
 	openParenths := 0
 
@@ -230,7 +236,7 @@ func (p *Parser) BuildAST() (Node, error) {
 			if insertConcat && p.fragmentsStack.Size() != 0 {
 				p.pushPopPriority(Concat) // insert implicit concat
 			}
-			p.fragmentsStack.Push(&CharNode{Character: sym})
+			p.fragmentsStack.Push(CharAutomata(sym))
 		case OpenParenthesis:
 			if insertConcat && p.fragmentsStack.Size() != 0 {
 				p.pushPopPriority(Concat) // insert implicit concat
