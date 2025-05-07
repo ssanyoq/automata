@@ -4,16 +4,18 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/ssanyoq/automata-uni/lab2/util"
 )
 
-func newLoadedStack[T any](load []T) *Stack[T] {
-	stack := NewStack[T]()
-	stack.items = load
+func newLoadedStack[T any](load []T) *util.Stack[T] {
+	stack := util.NewStack[T]()
+	stack.Items = load
 	return stack
 }
 
-func unloadStack[T any](s *Stack[T]) []T {
-	return s.items
+func unloadStack[T any](s *util.Stack[T]) []T {
+	return s.Items
 }
 
 func TestPopTillStop(t *testing.T) {
@@ -32,50 +34,14 @@ func TestPopTillStop(t *testing.T) {
 				ConcatAutomata(CharAutomata('a'), CharAutomata('b')),
 			},
 		},
-		// {
-		// 	name:                "parentheses",
-		// 	operatorsStackItems: []Token{Concat, OpenParenthesis, PositiveClosure},
-		// 	fragmentsStackItems: []Automata{&CharAutomata{Character: 'b'}, &CharAutomata{Character: 'a'}},
-		// 	expectedFragments: []Automata{
-		// 		&CharAutomata{Character: 'b'},
-		// 		&CaptureGroupAutomata{Number: -1,
-		// 			Child: &UnaryOpAutomata{
-		// 				Operation: PositiveClosure,
-		// 				Child:     &CharAutomata{Character: 'a'},
-		// 			}},
-		// 	},
-		// },
-		// {
-		// 	name:                "parentheses with others",
-		// 	operatorsStackItems: []Token{Prognostic},
-		// 	fragmentsStackItems: []Automata{
-		// 		&CaptureGroupAutomata{Number: 1,
-		// 			Child: &UnaryOpAutomata{
-		// 				Operation: PositiveClosure,
-		// 				Child:     &CharAutomata{Character: 'a'},
-		// 			}},
-		// 		&CaptureGroupAutomata{Number: 2,
-		// 			Child: &UnaryOpAutomata{
-		// 				Operation: Kleene,
-		// 				Child:     &CharAutomata{Character: 'b'},
-		// 			}},
-		// 	},
-		// 	expectedFragments: []Automata{
-		// 		&BinaryOpAutomata{
-		// 			Operation: Prognostic,
-		// 			Left: &CaptureGroupAutomata{Number: 1,
-		// 				Child: &UnaryOpAutomata{
-		// 					Operation: PositiveClosure,
-		// 					Child:     &CharAutomata{Character: 'a'},
-		// 				}},
-		// 			Right: &CaptureGroupAutomata{Number: 2,
-		// 				Child: &UnaryOpAutomata{
-		// 					Operation: Kleene,
-		// 					Child:     &CharAutomata{Character: 'b'},
-		// 				}},
-		// 		},
-		// 	},
-		// },
+		{
+			name:                "positive closure",
+			operatorsStackItems: []Token{PositiveClosure},
+			fragmentsStackItems: []*Automata{CharAutomata('a')},
+			expectedFragments: []*Automata{
+				ConcatAutomata(CharAutomata('a'), KleeneeAutomata(CharAutomata('a'))),
+			},
+		},
 	}
 
 	for _, test := range tests {
@@ -230,7 +196,7 @@ func TestPopTillStop(t *testing.T) {
 // 								Left: &RangeRepeatAutomata{
 // 									From: 0,
 // 									To:   1,
-// 									Child: &CaptureGroupAutomata{
+// 									Child: {
 // 										Number: -1,
 // 										Child: &BinaryOpAutomata{
 // 											Operation: Concat,

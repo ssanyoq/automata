@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/ssanyoq/automata-uni/lab2/util"
 )
 
 type Parser struct {
@@ -12,8 +14,8 @@ type Parser struct {
 	lexer *Lexer
 
 	// stacks for stacking
-	fragmentsStack *Stack[*Automata]
-	operatorsStack *Stack[Token]
+	fragmentsStack *util.Stack[*Automata]
+	operatorsStack *util.Stack[Token]
 
 	// To chill for a little bit and only return errors in main-ish functions
 	// also I saw this approach in golang parser, so yea
@@ -41,8 +43,8 @@ func combineErrors(errs []error) error {
 func NewParser(l *Lexer) *Parser {
 	return &Parser{
 		lexer:          l,
-		fragmentsStack: NewStack[*Automata](),
-		operatorsStack: NewStack[Token](),
+		fragmentsStack: util.NewStack[*Automata](),
+		operatorsStack: util.NewStack[Token](),
 
 		Errors: []error{},
 	}

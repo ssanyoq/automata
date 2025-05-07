@@ -108,7 +108,7 @@ func RepeatAutomata(a *Automata, from int, to int) *Automata {
 		head: a.head,
 		tail: a.tail,
 	}
-	for i := 0; i < from; i++ {
+	for i := 1; i < from; i++ {
 		res = ConcatAutomata(res, a.Duplicate())
 	}
 	if to == -1 {

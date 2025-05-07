@@ -1,7 +1,7 @@
-package main
+package util
 
 type Stack[T any] struct {
-	items []T
+	Items []T
 }
 
 func NewStack[T any]() *Stack[T] {
@@ -9,32 +9,32 @@ func NewStack[T any]() *Stack[T] {
 }
 
 func (s *Stack[T]) Push(item T) {
-	s.items = append(s.items, item)
+	s.Items = append(s.Items, item)
 }
 
 func (s *Stack[T]) Pop() (T, bool) {
-	if len(s.items) == 0 {
+	if len(s.Items) == 0 {
 		var zeroValue T
 		return zeroValue, false
 	}
-	lastIndex := len(s.items) - 1
-	value := s.items[lastIndex]
-	s.items = s.items[:lastIndex]
+	lastIndex := len(s.Items) - 1
+	value := s.Items[lastIndex]
+	s.Items = s.Items[:lastIndex]
 	return value, true
 }
 
 func (s *Stack[T]) Peek() (T, bool) {
-	if len(s.items) == 0 {
+	if len(s.Items) == 0 {
 		var zeroValue T
 		return zeroValue, false
 	}
-	return s.items[len(s.items)-1], true
+	return s.Items[len(s.Items)-1], true
 }
 
 func (s *Stack[T]) IsEmpty() bool {
-	return len(s.items) == 0
+	return len(s.Items) == 0
 }
 
 func (s *Stack[T]) Size() int {
-	return len(s.items)
+	return len(s.Items)
 }
