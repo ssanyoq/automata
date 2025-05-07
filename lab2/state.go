@@ -1,5 +1,10 @@
 package main
 
+type State struct {
+	isAccepting bool
+	transitions []Transition
+}
+
 type Transition interface {
 	CheckAndGetState(r rune) *State
 }
@@ -38,11 +43,6 @@ type EpsilonTransition struct {
 
 func (t *EpsilonTransition) CheckAndGetState(r rune) *State {
 	return t.s
-}
-
-type State struct {
-	isAccepting bool
-	transitions []Transition
 }
 
 type Automata struct {
@@ -120,4 +120,33 @@ func (a *Automata) Duplicate() *Automata {
 		head: stateMap[a.head],
 		tail: stateMap[a.tail],
 	}
+}
+
+// Recursively calculates ε-closure of given state
+func epsilonClosureRecursive(s *State, beenTo map[*State]bool) []*State {
+	out := []*State{s}
+	for _, tr := range s.transitions {
+		etr, ok := tr.(*EpsilonTransition)
+		if !ok {
+			continue
+		}
+		_, ok = beenTo[etr.s]
+		if ok {
+			continue
+		}
+		beenTo[etr.s] = true
+		out = append(out, epsilonClosureRecursive(etr.s, beenTo)...)
+	}
+	return out
+}
+
+// Calculates ε-closure of given state set
+func EpsilonClosure(s []*State) []*State {
+	beenTo := make(map[*State]bool)
+	out := make([]*State, 0)
+	for _, state := range s {
+		beenTo[state] = true
+		out = append(out, epsilonClosureRecursive(state, beenTo)...)
+	}
+	return out
 }
