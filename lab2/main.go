@@ -8,6 +8,10 @@ func main() {
 	// }
 	nfa := ConcatAutomata(CharAutomata('a'), KleeneeAutomata(OrAutomata(CharAutomata('a'), CharAutomata('b'))))
 	nfa.PrintAutomata()
+	println("DFA:")
 	dfa := GenerateDFA(nfa)
+	dfa.PrintDFA()
+	println("Minimized:")
+	dfa.Minimize()
 	dfa.PrintDFA()
 }
