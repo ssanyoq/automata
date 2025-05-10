@@ -17,9 +17,8 @@ func (s *Queue[T]) Pop() (T, bool) {
 		var zeroValue T
 		return zeroValue, false
 	}
-	lastIndex := len(s.Items) - 1
-	value := s.Items[lastIndex]
-	s.Items = s.Items[:lastIndex]
+	value := s.Items[0]
+	s.Items = s.Items[1:]
 	return value, true
 }
 
@@ -28,7 +27,7 @@ func (s *Queue[T]) Peek() (T, bool) {
 		var zeroValue T
 		return zeroValue, false
 	}
-	return s.Items[len(s.Items)-1], true
+	return s.Items[0], true
 }
 
 func (s *Queue[T]) IsEmpty() bool {
