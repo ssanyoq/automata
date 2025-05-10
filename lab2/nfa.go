@@ -86,6 +86,7 @@ func KleeneeAutomata(a *Automata) *Automata {
 		isAccepting: true,
 		transitions: []Transition{},
 	}
+	a.tail.transitions = append(a.tail.transitions, &EpsilonTransition{s: st2})
 	st1 := &State{
 		isAccepting: false,
 		transitions: []Transition{

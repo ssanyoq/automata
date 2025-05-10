@@ -1,5 +1,11 @@
 package main
 
+import (
+	"fmt"
+
+	"github.com/ssanyoq/automata-uni/lab2/util"
+)
+
 type State struct {
 	isAccepting bool
 	transitions []Transition
@@ -7,6 +13,7 @@ type State struct {
 
 type Transition interface {
 	CheckAndGetState(r rune) *State
+	GetState() *State
 }
 
 type RangeTransition struct {
@@ -23,6 +30,10 @@ func (t *RangeTransition) CheckAndGetState(r rune) *State {
 	return nil
 }
 
+func (t *RangeTransition) GetState() *State {
+	return t.s
+}
+
 type AlphaTransition struct {
 	Transition
 	char rune
@@ -36,12 +47,20 @@ func (t *AlphaTransition) CheckAndGetState(r rune) *State {
 	return nil
 }
 
+func (t *AlphaTransition) GetState() *State {
+	return t.s
+}
+
 type EpsilonTransition struct {
 	Transition
 	s *State
 }
 
 func (t *EpsilonTransition) CheckAndGetState(r rune) *State {
+	return t.s
+}
+
+func (t *EpsilonTransition) GetState() *State {
 	return t.s
 }
 
@@ -149,4 +168,52 @@ func EpsilonClosure(s []*State) []*State {
 		out = append(out, epsilonClosureRecursive(state, beenTo)...)
 	}
 	return out
+}
+
+// prints the NFA structure for debugging
+func (a *Automata) PrintAutomata() {
+	fmt.Println("Automata States:")
+	states := make(map[*State]int)
+	last := 1
+	q := util.NewQueue[*State]()
+	q.Push(a.head)
+	for !q.IsEmpty() {
+		s, _ := q.Pop()
+		_, ok := states[s]
+		if ok {
+			continue
+		}
+		states[s] = last
+		last++
+		for _, v := range s.transitions {
+			q.Push(v.GetState())
+		}
+	}
+	q = util.NewQueue[*State]()
+	been := make(map[*State]bool)
+	q.Push(a.head)
+	for !q.IsEmpty() {
+		s, _ := q.Pop()
+		if been[s] {
+			continue
+		}
+		been[s] = true
+		fmt.Printf("State %d", states[s])
+		if s.isAccepting {
+			fmt.Print("[accepting]")
+		}
+		fmt.Print(":")
+		for _, tr := range s.transitions {
+			switch t := tr.(type) {
+			case *EpsilonTransition:
+				fmt.Printf("ε -> %d; ", states[t.s])
+			case *AlphaTransition:
+				fmt.Printf("%c -> %d; ", t.char, states[t.s])
+			case *RangeTransition:
+				fmt.Printf("%c-%c -> %d; ", t.from, t.to, states[t.s])
+			}
+			q.Push(tr.GetState())
+		}
+		fmt.Println()
+	}
 }
