@@ -30,14 +30,14 @@ func (d *DFAState) epsilonClosureDFA() {
 		keys = append(keys, k)
 	}
 	keys = EpsilonClosure(keys)
-	newSet := make(map[*State]bool)
+	newDFA := make(map[*State]bool)
 	for _, k := range keys {
 		if k.isAccepting {
 			d.isAccepting = true
 		}
-		newSet[k] = true
+		newDFA[k] = true
 	}
-	d.nfaStates = newSet
+	d.nfaStates = newDFA
 }
 
 // Transits by given character
@@ -105,26 +105,28 @@ func getTransitions(dfaState *DFAState) map[rune]*DFAState {
 	return out
 }
 
-// Checks if newSet is already present in sets
-func containsSet(sets []map[*State]bool, newSet map[*State]bool) bool {
-	for _, existingSet := range sets {
-		if len(existingSet) != len(newSet) {
-			continue
-		}
-
-		allMatch := true
-		for key, newValue := range newSet {
-			existingValue, exists := existingSet[key]
-			if !exists || existingValue != newValue {
-				allMatch = false
-				break
-			}
-		}
-		if allMatch {
-			return true
+func setEquals(left map[*State]bool, right map[*State]bool) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for lKey, lVal := range left {
+		rVal, exists := right[lKey]
+		if !exists || rVal != lVal {
+			return false
 		}
 	}
-	return false
+	return true
+}
+
+// Checks if DFA with the same set of nfa states is already present.
+// If present, returns pointer to said DFA
+func getDFABySet(dfas []*DFAState, newDFA *DFAState) *DFAState {
+	for _, dfa := range dfas {
+		if setEquals(dfa.nfaStates, newDFA.nfaStates) {
+			return dfa
+		}
+	}
+	return nil
 }
 
 // Removes unknown states
@@ -153,21 +155,21 @@ func GenerateDFA(nfa *Automata) *DFAResult {
 	stateQueue := util.NewQueue[*DFAState]()
 	stateQueue.Push(startState)
 
-	seenSets := make([]map[*State]bool, 0)
 	states := make([]*DFAState, 0)
 
 	for !stateQueue.IsEmpty() {
 		state, _ := stateQueue.Pop()
-		if containsSet(seenSets, state.nfaStates) {
-			continue
-		}
 
-		seenSets = append(seenSets, state.nfaStates)
 		states = append(states, state)
 		transitions := getTransitions(state)
 		state.transitions = make(map[rune]*DFAState)
 		for r, s := range transitions {
 			s.epsilonClosureDFA()
+			existing := getDFABySet(states, s)
+			if existing != nil {
+				state.transitions[r] = existing
+				continue
+			}
 			state.transitions[r] = s
 			stateQueue.Push(s)
 		}
@@ -191,9 +193,10 @@ func getAlphabet(dfa *DFAResult) map[rune]bool {
 	return alphabet
 }
 
+// Alias for better readability
 type DFASet map[*DFAState]bool
 
-// Replaces sets in allSets with those specified in replaceMap
+// Replaces DFAs in allSets with those specified in replaceMap
 func replaceSets(allSets []*DFASet, replaceMap map[*DFASet][]*DFASet) []*DFASet {
 	result := make([]*DFASet, 0)
 	for _, elem := range allSets {
@@ -231,43 +234,39 @@ func (dfa *DFAResult) Minimize() error {
 
 	alphabet := getAlphabet(dfa)
 	// Forming groups
-	noChanges := false
-	for !noChanges {
-		noChanges = true
-		for _, targetGroup := range groupsList {
-			// targetGroup, _ := groupsQueue.Pop()
-			for symbol := range alphabet {
+	for !groupsQueue.IsEmpty() {
+		targetGroup, _ := groupsQueue.Pop()
+		for symbol := range alphabet {
 
-				// Map that stores which state should be replaced with which states
-				replaceMap := make(map[*DFASet][]*DFASet)
-				for _, group := range groupsList {
-					inTarget := make(DFASet)
-					other := make(DFASet)
+			// Map that stores which state should be replaced with which states
+			replaceMap := make(map[*DFASet][]*DFASet)
 
-					for state := range *group {
-						tr := state.transit(symbol)
-						if tr == nil {
-							// continue
-							other[state] = true
-						}
+			for _, group := range groupsList {
+				inTarget := make(DFASet)
+				other := make(DFASet)
 
-						if (*targetGroup)[tr] {
-							inTarget[state] = true
-						} else {
-							other[state] = true
-						}
+				for state := range *group {
+					tr := state.transit(symbol)
+					if tr == nil {
+						// continue
+						other[state] = true
 					}
-					if len(inTarget) != 0 && len(other) != 0 {
-						noChanges = false
-						// Group can be divided, so we will do this
-						replaceMap[group] = []*DFASet{&inTarget, &other}
-						groupsQueue.Push(&inTarget)
-						groupsQueue.Push(&other)
+
+					if (*targetGroup)[tr] {
+						inTarget[state] = true
+					} else {
+						other[state] = true
 					}
 				}
-
-				groupsList = replaceSets(groupsList, replaceMap)
+				if len(inTarget) != 0 && len(other) != 0 {
+					// Group can be divided, so we will do this
+					replaceMap[group] = []*DFASet{&inTarget, &other}
+					groupsQueue.Push(&inTarget)
+					groupsQueue.Push(&other)
+				}
 			}
+
+			groupsList = replaceSets(groupsList, replaceMap)
 		}
 	}
 

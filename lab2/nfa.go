@@ -70,6 +70,12 @@ func OrAutomata(left *Automata, right *Automata) *Automata {
 }
 
 func ConcatAutomata(left *Automata, right *Automata) *Automata {
+	if left == nil {
+		return right
+	}
+	if right == nil {
+		return left
+	}
 	left.tail.isAccepting = false
 	left.tail.transitions = append(left.tail.transitions, right.head.transitions...) // squash 2 states
 
@@ -105,11 +111,9 @@ func KleeneeAutomata(a *Automata) *Automata {
 }
 
 func RepeatAutomata(a *Automata, from int, to int) *Automata {
-	res := &Automata{
-		head: a.head,
-		tail: a.tail,
-	}
-	for i := 1; i < from; i++ {
+	var res *Automata
+
+	for i := 0; i < from; i++ {
 		res = ConcatAutomata(res, a.Duplicate())
 	}
 	if to == -1 {
@@ -119,10 +123,33 @@ func RepeatAutomata(a *Automata, from int, to int) *Automata {
 	end := &State{
 		isAccepting: true,
 	}
-	res.tail.transitions = append(res.tail.transitions, &EpsilonTransition{s: end})
+
+	middle := &State{
+		isAccepting: false,
+		transitions: []Transition{
+			&EpsilonTransition{s: end},
+		},
+	}
+	if res == nil {
+		res = &Automata{
+			head: middle,
+			tail: middle,
+		}
+	} else {
+		res.tail.transitions = append(res.tail.transitions, &EpsilonTransition{s: middle})
+		res.tail = middle
+	}
+
 	for i := from; i < to; i++ {
 		res = ConcatAutomata(res, a.Duplicate())
-		res.tail.transitions = append(res.tail.transitions, &EpsilonTransition{s: end})
+		res.tail.isAccepting = false
+		skip := &State{
+			isAccepting: false,
+			transitions: []Transition{
+				&EpsilonTransition{s: end},
+			},
+		}
+		res.tail.transitions = append(res.tail.transitions, &EpsilonTransition{s: skip})
 	}
 	res.tail.isAccepting = false
 	res.tail = end
