@@ -6,13 +6,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestToDFA(t *testing.T) {
-	nfa := ConcatAutomata(CharAutomata('a'), KleeneeAutomata(OrAutomata(CharAutomata('a'), CharAutomata('b'))))
-	nfa.PrintAutomata()
-	dfa := GenerateDFA(nfa)
-	dfa.PrintDFA()
-}
-
 func getPatternTests() []struct {
 	name     string
 	pattern  string
@@ -33,9 +26,15 @@ func getPatternTests() []struct {
 		},
 		{
 			name:     "email",
-			pattern:  "user%@(gmail|ya)%.com",
+			pattern:  "[a-z]+%@(gmail|ya)%.(ru|com)",
 			matchee:  "user@gmail.com",
 			expected: "user@gmail.com",
+		},
+		{
+			name:     "email 2",
+			pattern:  "user%@(gmail|ya)%.(ru|com)",
+			matchee:  "user@ya.ru",
+			expected: "user@ya.ru",
 		},
 		{
 			name:     "ranges",
@@ -85,9 +84,6 @@ func getPatternTests() []struct {
 func TestNonMinimized(t *testing.T) {
 
 	for _, tt := range getPatternTests() {
-		if tt.name != "rangee" {
-			continue
-		}
 		t.Run(tt.name, func(t *testing.T) {
 			p := NewParser(NewLexer(tt.pattern))
 			nfa, err := p.BuildNFA()

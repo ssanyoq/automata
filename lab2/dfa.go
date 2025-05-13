@@ -105,6 +105,7 @@ func getTransitions(dfaState *DFAState) map[rune]*DFAState {
 	return out
 }
 
+// Checks equality of 2 given sets
 func setEquals(left map[*State]bool, right map[*State]bool) bool {
 	if len(left) != len(right) {
 		return false

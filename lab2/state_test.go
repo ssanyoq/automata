@@ -66,9 +66,9 @@ func TestEpsilonClosure(t *testing.T) {
 		/*
 			          a
 					a -> b
-					^	  \
-				     \     |
-					 ε\_c<-ε
+					^	   \
+				     \     /
+					 ε -c<-ε
 
 		*/
 		b := &State{

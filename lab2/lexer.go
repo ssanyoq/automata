@@ -8,7 +8,8 @@ type Lexer struct {
 	pos int
 }
 
-func ToRunes(str string) []rune {
+// Converts string into slice of runes(tomato->tomato)
+func toRunes(str string) []rune {
 	result := []rune{}
 	bytes := []byte(str)
 	for i := 0; i < len(bytes); {
@@ -21,7 +22,7 @@ func ToRunes(str string) []rune {
 
 func NewLexer(input string) *Lexer {
 	return &Lexer{
-		input: ToRunes(input),
+		input: toRunes(input),
 		pos:   0,
 	}
 }
@@ -36,6 +37,8 @@ func (l *Lexer) SkipWhitespaces() {
 	}
 }
 
+// Returns current token and rune, then
+// makes a step to the next character if possible
 func (l *Lexer) Next() (Token, rune) {
 	if l.pos == len(l.input) {
 		return EOS, ' '

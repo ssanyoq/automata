@@ -2,6 +2,7 @@ package main
 
 // shortcuts for making NFA, for parsing
 
+// Makes NFA automata for single character transition
 func CharAutomata(r rune) *Automata {
 	st2 := State{
 		isAccepting: true,
@@ -22,6 +23,7 @@ func CharAutomata(r rune) *Automata {
 	}
 }
 
+// Makes NFA automata for [from-to]
 func RangeCharAutomata(from rune, to rune) *Automata {
 	st2 := State{
 		isAccepting: true,
@@ -43,6 +45,7 @@ func RangeCharAutomata(from rune, to rune) *Automata {
 	}
 }
 
+// Makes NFA automata for left|right
 func OrAutomata(left *Automata, right *Automata) *Automata {
 	left.tail.isAccepting = false
 	right.tail.isAccepting = false
@@ -69,6 +72,7 @@ func OrAutomata(left *Automata, right *Automata) *Automata {
 	}
 }
 
+// Makes NFA automata for left.right
 func ConcatAutomata(left *Automata, right *Automata) *Automata {
 	if left == nil {
 		return right
@@ -85,6 +89,7 @@ func ConcatAutomata(left *Automata, right *Automata) *Automata {
 	}
 }
 
+// Makes NFA automata for a*
 func KleeneeAutomata(a *Automata) *Automata {
 	a.tail.isAccepting = false
 	a.tail.transitions = append(a.tail.transitions, &EpsilonTransition{s: a.head})
@@ -110,6 +115,7 @@ func KleeneeAutomata(a *Automata) *Automata {
 	}
 }
 
+// Makes NFA automata for a{from,to}
 func RepeatAutomata(a *Automata, from int, to int) *Automata {
 	var res *Automata
 
@@ -156,6 +162,7 @@ func RepeatAutomata(a *Automata, from int, to int) *Automata {
 	return res
 }
 
+// Makes NFA automata for a+
 func PositiveClosureAutomata(a *Automata) *Automata {
 	return RepeatAutomata(a, 1, -1)
 }

@@ -25,6 +25,7 @@ type Parser struct {
 	// nextCaptGroup  int
 }
 
+// Combines slice of errors into 1 readable error
 func combineErrors(errs []error) error {
 	if len(errs) == 0 {
 		return nil
@@ -50,6 +51,8 @@ func NewParser(l *Lexer) *Parser {
 	}
 }
 
+// Pops operator and required amount of operators, creates
+// fragment of automata and puts it into fragments stack
 func (p *Parser) popOp() {
 	op, ok := p.operatorsStack.Pop()
 	if !ok {
@@ -101,7 +104,7 @@ func (p *Parser) popOp() {
 	}
 }
 
-// Called when either the EOL or closed parenthesis is found
+// Gradually forms automata from operators and fragments present in stacks
 func (p *Parser) popTillStop() {
 	op, ok := p.operatorsStack.Peek()
 	for op != OpenParenthesis && ok {
@@ -113,9 +116,7 @@ func (p *Parser) popTillStop() {
 	}
 	if op == OpenParenthesis {
 		p.operatorsStack.Pop() // to remove them
-		// p.fragmentsStack.Push(&CaptureGroupNode{Number: -1, Child: frag}) // do something like this in automatas
 	}
-
 }
 
 // Called when parser encounters '{' to create RangeRepeat fragment
@@ -195,13 +196,12 @@ func (p *Parser) parseBrackets() {
 		return
 	}
 	p.lexer.Next()
-	// p.fragmentsStack.Push(&CharacterRangeNode{
-	// 	From: fromVal,
-	// 	To:   toVal,
-	// })
 	p.fragmentsStack.Push(RangeCharAutomata(fromVal, toVal))
 }
 
+// Transforms fragments and operators into one if next operator
+// has lower priority than the last operator present in stack.
+// Then adds new operator to the stack
 func (p *Parser) pushPopPriority(nextOp Token) {
 	defer p.operatorsStack.Push(nextOp)
 

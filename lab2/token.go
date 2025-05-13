@@ -5,7 +5,7 @@ import "errors"
 type Token int
 
 const (
-	EOS Token = iota
+	EOS Token = iota // End Of String
 
 	Concat          // '.' or ''
 	Prognostic      // '/'
@@ -30,6 +30,8 @@ const (
 
 )
 
+// Converts symbols into much more readable
+// iota values
 func GetToken(character rune) Token {
 	switch character {
 	case '.':
@@ -69,6 +71,9 @@ func GetToken(character rune) Token {
 	}
 }
 
+// Returns the amount of arguments that is required by
+// given operation. If operation is not supported,
+// returns an error
 func OpRequiresArgs(t Token) (int, error) {
 	switch t {
 	case Concat:

@@ -69,6 +69,7 @@ type Automata struct {
 	tail *State
 }
 
+// Returns copy of this automata
 func (a *Automata) Duplicate() *Automata {
 	if a == nil || a.head == nil {
 		return nil
