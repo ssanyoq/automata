@@ -4,8 +4,9 @@ import "errors"
 
 // User interface for regex library
 type RegexMachine struct {
-	pattern  string
-	automata *DFAResult
+	pattern    string
+	automata   *DFAResult
+	prognostic *DFAResult
 }
 
 // Creates new instance of RegexMachine
@@ -17,7 +18,31 @@ func NewRegexMachine(pattern string) *RegexMachine {
 
 // Compiles pattern into minimized DFA
 func (r *RegexMachine) Compile() error {
-	p := NewParser(NewLexer(r.pattern))
+	prognosticIndex := -1
+	for i, v := range r.pattern {
+		if v == '/' {
+			if prognosticIndex != -1 {
+				return errors.New("found more than 1 prognostic operator")
+			}
+			prognosticIndex = i
+		}
+	}
+	reString := r.pattern
+	if prognosticIndex != -1 {
+		reString = r.pattern[:prognosticIndex]
+
+		p := NewParser(NewLexer(r.pattern[prognosticIndex+1:]))
+		nfa, err := p.BuildNFA()
+		if err != nil {
+			return err
+		}
+		r.prognostic = GenerateDFA(nfa)
+		err = r.prognostic.Minimize()
+		if err != nil {
+			return nil
+		}
+	}
+	p := NewParser(NewLexer(reString))
 	nfa, err := p.BuildNFA()
 	if err != nil {
 		return err
@@ -35,7 +60,18 @@ func (r *RegexMachine) Match(matchee string) (string, error) {
 			return "", err
 		}
 	}
-	return r.automata.Match(matchee), nil
+	if r.prognostic == nil {
+		return r.automata.Match(matchee), nil
+	}
+	var maxMatch string
+	for i := range matchee {
+		reMatch := r.automata.Match(matchee[:i])
+		progMatch := r.automata.Match(matchee[i:])
+		if progMatch != "" && reMatch != "" {
+			maxMatch = reMatch
+		}
+	}
+	return maxMatch, nil
 }
 
 // Recovers pattern from
