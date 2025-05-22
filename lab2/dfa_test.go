@@ -106,3 +106,16 @@ func TestMinimized(t *testing.T) {
 		})
 	}
 }
+
+func TestMain(t *testing.T) {
+	p := NewParser(NewLexer("a(a|b)*"))
+	nfa, _ := p.BuildNFA()
+	nfa.PrintAutomata()
+	dfa := GenerateDFA(nfa)
+	_ = dfa.Minimize()
+	dfa.PrintDFA()
+	println("intersection")
+	dfa.Intersect(dfa).PrintDFA()
+	println("subtraction")
+	dfa.Subtract(dfa).PrintDFA()
+}

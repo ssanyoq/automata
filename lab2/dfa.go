@@ -310,6 +310,118 @@ func (dfa *DFAResult) Minimize() error {
 	return nil
 }
 
+// Returns dfa by value. Corresponding NFA values are copied by
+// reference though
+func (dfa *DFAResult) Copy() *DFAResult {
+	oldToNew := make(map[*DFAState]*DFAState)
+	newStates := make([]*DFAState, 0)
+	for _, s := range dfa.states {
+		newState := &DFAState{
+			isAccepting: s.isAccepting,
+			transitions: make(map[rune]*DFAState), // empty for now
+			nfaStates:   s.nfaStates,              // atp not used anyway, so dfa by reference
+		}
+		oldToNew[s] = newState
+		newStates = append(newStates, newState)
+	}
+
+	// now transitions
+	for _, s := range dfa.states {
+		newState := oldToNew[s]
+		for r, tr := range s.transitions {
+			newState.transitions[r] = oldToNew[tr]
+		}
+	}
+	return &DFAResult{
+		startState: oldToNew[dfa.startState],
+		states:     newStates,
+	}
+}
+
+// Removes states that are unreachable from start state
+func (dfa *DFAResult) removeRedundantStates() {
+	newStatesList := make([]*DFAState, 0)
+	beenTo := make(DFASet)
+	queue := util.NewQueue[*DFAState]()
+	queue.Push(dfa.startState)
+	for !queue.IsEmpty() {
+		state, _ := queue.Pop()
+		newStatesList = append(newStatesList, state)
+		for _, tr := range state.transitions {
+			if !beenTo[tr] {
+				beenTo[tr] = true
+				queue.Push(tr)
+			}
+		}
+	}
+	dfa.states = newStatesList
+}
+
+type DFAPair [2]*DFAState
+type DFAMulAutomata struct {
+	states     map[DFAPair]*DFAState
+	startState *DFAState
+}
+
+// Performs multiplications on 2 DFAs. Automatas are
+// copied by reference, so don't worry
+func multiply(this *DFAResult, other *DFAResult) *DFAMulAutomata {
+	out := &DFAMulAutomata{}
+	this = this.Copy()
+	other = other.Copy()
+	mulStates := make(map[DFAPair]*DFAState)
+	for _, thisState := range this.states {
+		for _, otherState := range other.states {
+			newState := NewDFAState()
+			mulStates[DFAPair{thisState, otherState}] = newState
+			if thisState == this.startState && otherState == other.startState {
+				out.startState = newState
+			}
+		}
+	}
+
+	// make transitions
+	for pair, mulState := range mulStates {
+		for symbol, thisTransitState := range pair[0].transitions {
+			otherTransitState, ok := pair[1].transitions[symbol]
+			if !ok {
+				continue
+			}
+			transitMulState := mulStates[DFAPair{thisTransitState, otherTransitState}]
+			mulState.transitions[symbol] = transitMulState
+		}
+	}
+	out.states = mulStates
+	return out
+}
+
+// Transforms DFA multiplication into DFA. Uses acceptCriteria to determine wether
+// given DFAMulState is accepting or not
+func mulToDFA(mulAutomata *DFAMulAutomata, acceptCriteria func(bool, bool) bool) *DFAResult {
+	dfaStates := make([]*DFAState, 0)
+	for pair, state := range mulAutomata.states {
+		state.isAccepting = acceptCriteria(pair[0].isAccepting, pair[1].isAccepting) // !
+		dfaStates = append(dfaStates, state)
+	}
+
+	out := &DFAResult{
+		states:     dfaStates,
+		startState: mulAutomata.startState,
+	}
+	out.removeRedundantStates()
+	return out
+}
+
+func (dfa *DFAResult) Intersect(other *DFAResult) *DFAResult {
+	mult := multiply(dfa, other)
+	return mulToDFA(mult, func(b1, b2 bool) bool { return b1 && b2 })
+}
+
+func (dfa *DFAResult) Subtract(other *DFAResult) *DFAResult {
+	mult := multiply(dfa, other)
+	return mulToDFA(mult, func(b1, b2 bool) bool { return b1 && !b2 })
+}
+
 // PrintDFA prints the DFA structure for debugging
 func (dfa *DFAResult) PrintDFA() {
 	fmt.Println("DFA States:")
