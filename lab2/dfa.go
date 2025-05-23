@@ -338,6 +338,159 @@ func (dfa *DFAResult) Copy() *DFAResult {
 	}
 }
 
+// Returns regex pattern recovered from compiled automata via
+// state excluding technique
+func (dfa *DFAResult) RecoverRegex() string {
+	// transtions[stateA][stateB] = "ab|c" - marker from A to B
+	transitions := make(map[*DFAState]map[*DFAState]string)
+	// The other way around. For A -> B there is stored sources[B][A] = true
+	sources := make(map[*DFAState]DFASet)
+	for _, s := range dfa.states {
+		transitions[s] = make(map[*DFAState]string)
+		sources[s] = make(DFASet)
+	}
+
+	alphabet := getAlphabet(dfa)
+	defState := &DFAState{}
+	sources[defState] = make(DFASet)
+	for _, state := range dfa.states {
+		for alpha := range alphabet {
+			next := state.transit(alpha)
+			if next == nil {
+				next = defState
+			}
+			toAdd := escapeSymbol(alpha)
+
+			_, ok := transitions[state][next]
+			if !ok {
+				transitions[state][next] = toAdd
+			} else {
+				transitions[state][next] += "|" + toAdd
+			}
+			// if _, ok := transitions[next]; !ok {
+			// 	sources[next] = make(DFASet)
+			// }
+			sources[next][state] = true
+		}
+	}
+
+	result := ""
+	toExclude := util.NewQueue[*DFAState]()
+	toEvaluate := util.NewQueue[*DFAState]()
+
+	visited := make(DFASet)
+	toEvaluate.Push(dfa.startState)
+
+	for !toEvaluate.IsEmpty() {
+		cur, _ := toEvaluate.Pop()
+
+		for _, next := range cur.transitions {
+			if !visited[next] {
+				toEvaluate.Push(next)
+				visited[next] = true
+				_, nilInTransitions := transitions[next][defState]
+				existsCycle := sources[next][next]
+				// if len(sources[next]) != 0 &&
+				// 	len(transitions[next]) != 0 &&
+				// 	!(len(transitions[next]) == 1 && nilInTransitions ||
+				// 		len(transitions[next]) == 1 && existsCycle) {
+				if len(sources[next]) != 0 &&
+					len(transitions[next]) != 0 &&
+					(len(transitions[next]) != 1 || !nilInTransitions) &&
+					(len(transitions[next]) != 1 || !existsCycle) {
+					toExclude.Push(next)
+				} // !(a&b v c&d) => !(a&b) & !(c&d) => (!av!b)&(!cv!d)
+				//
+			}
+		}
+	}
+	for !toExclude.IsEmpty() {
+		// prevs -> central -> nexts
+		central, _ := toExclude.Pop()
+		prevs := make(DFASet)
+		nexts := make(DFASet)
+
+		for prev := range sources[central] {
+			prevs[prev] = true
+			if central == prev {
+				continue
+			}
+			for next := range transitions[central] {
+				if next == central {
+					continue
+				}
+				nexts[next] = true
+				centralCycle := ""
+				if _, ok := transitions[central][central]; ok {
+					centralCycle = fmt.Sprintf("%s*", transitions[central][central])
+				}
+
+				if _, ok := transitions[prev][next]; ok {
+					transitions[prev][next] += "|"
+				} else {
+					transitions[prev][next] = ""
+				}
+				transitions[prev][next] +=
+					fmt.Sprintf("((%s)%s(%s))", transitions[prev][central], centralCycle, transitions[central][next])
+
+				if central.isAccepting && prev == dfa.startState {
+					if len(result) != 0 {
+						result += "|"
+					}
+					result += fmt.Sprintf("((%s)%s)", transitions[prev][central], centralCycle)
+				}
+			}
+		}
+
+		for next := range nexts {
+			for prev := range prevs {
+				sources[next][prev] = true
+			}
+		}
+		for next := range nexts {
+			delete(sources[next], central)
+		}
+		for prev := range prevs {
+			delete(transitions[prev], central)
+		}
+		delete(transitions, central)
+		delete(sources, central)
+	}
+
+	// Processing start and ends
+	startCycle := transitions[dfa.startState][dfa.startState] // "" by default
+	if dfa.startState.isAccepting && len(startCycle) != 0 {
+		if len(result) != 0 {
+			result += "|"
+		}
+		result += fmt.Sprintf("(%s)*", startCycle)
+	}
+
+	for next, marker := range transitions[dfa.startState] {
+		if next == dfa.startState {
+			continue
+		}
+		if next.isAccepting {
+			nodeCycle := ""
+			if _, ok := transitions[next][next]; ok { // cycle
+				nodeCycle = fmt.Sprintf("(%s)*", transitions[next][next])
+			}
+			cycle := ""
+			if _, ok := transitions[next][dfa.startState]; ok {
+				cycle += fmt.Sprintf("((%s%s%s)|(%s))...", marker, nodeCycle, transitions[next][dfa.startState], startCycle)
+			}
+			if len(result) != 0 {
+				result += "|"
+			}
+			result += fmt.Sprintf("(%s(%s)%s)", cycle, marker, nodeCycle)
+		}
+	}
+	if len(startCycle) == 0 && dfa.startState.isAccepting {
+		result = fmt.Sprintf("(%s){,1}", result)
+	}
+	return result
+}
+
 // Removes states that are unreachable from start state
 func (dfa *DFAResult) removeRedundantStates() {
 	newStatesList := make([]*DFAState, 0)
